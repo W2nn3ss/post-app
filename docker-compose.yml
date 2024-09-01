@@ -1,0 +1,65 @@
+services:
+    app:
+        build:
+            context: ./
+            dockerfile: Dockerfile
+        container_name: post-app
+        working_dir: /var/www/
+        user: "www-data"
+        volumes:
+            - .:/var/www
+        networks:
+            - app-network
+        environment:
+            - APP_ENV=local
+            - APP_DEBUG=true
+            - CACHE_DRIVER=redis
+            - REDIS_HOST=redis
+            - DB_CONNECTION=mysql
+        depends_on:
+            - db
+            - redis
+
+    nginx:
+        image: nginx:alpine
+        container_name: post-service-nginx
+        restart: unless-stopped
+        ports:
+            - "8000:80"
+        volumes:
+            - .:/var/www
+            - ./docker/nginx/conf.d:/etc/nginx/conf.d
+        networks:
+            - app-network
+
+    db:
+        image: mysql:8.0
+        container_name: post-app-mysql
+        ports:
+            - "3306:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: root_password
+            MYSQL_DATABASE: post_app
+            MYSQL_USER: app
+            MYSQL_PASSWORD: secret
+        networks:
+            - app-network
+        volumes:
+            - dbdata:/var/lib/mysql
+            - ./docker/mysql/initdb.d:/docker-entrypoint-initdb.d
+
+    redis:
+        image: redis:alpine
+        container_name: post-service-redis
+        ports:
+            - "6379:6379"
+        networks:
+            - app-network
+
+networks:
+    app-network:
+        driver: bridge
+
+volumes:
+    dbdata:
+        driver: local
